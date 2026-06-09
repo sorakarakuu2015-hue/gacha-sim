@@ -1,0 +1,45 @@
+<div class="card" id="banner-area">
+  <div class="card-title">{{ banner.name }}</div>
+  {% if banner.stone_price %}
+  <div class="stone-price-badge">1回 約¥{{ (banner.stone_price.jpy_per_pull()|float|round)|int }}</div>
+  {% endif %}
+
+  <!-- 天井バー -->
+  {% set pity_now = state.pity_count if state else 0 %}
+  {% set hard = banner.pity.hard_pity %}
+  {% set soft = banner.pity.soft_pity_start %}
+  {% set pct = (pity_now / hard * 100) | round(1) %}
+  <div class="pity-bar-wrap" id="pity-bar" style="margin-bottom: 1rem;">
+    <span class="pity-label">天井カウント</span>
+    <div class="pity-bar-bg">
+      <div class="pity-bar-fill" style="width: {{ pct }}%; background: {% if pity_now >= soft %}#f6c244{% else %}var(--accent){% endif %};"></div>
+    </div>
+    <span class="pity-label">{{ pity_now }} / {{ hard }}</span>
+  </div>
+
+  <!-- ガチャボタン -->
+  <div class="pull-area">
+    <button
+      class="btn btn-primary"
+      hx-post="/pull/1"
+      hx-target="#result"
+      hx-swap="afterbegin"
+      hx-indicator=".pull-area"
+    >1回引く</button>
+    <button
+      class="btn btn-primary"
+      hx-post="/pull/10"
+      hx-target="#result"
+      hx-swap="afterbegin"
+      hx-indicator=".pull-area"
+    >10連</button>
+    <button
+      class="btn btn-secondary"
+      hx-delete="/api/v1/session"
+      hx-confirm="本当にリセットしますか？"
+      hx-target="#result"
+      hx-swap="innerHTML"
+      hx-on::after-request="document.getElementById('stats-area').innerHTML=''"
+    >リセット</button>
+  </div>
+</div>

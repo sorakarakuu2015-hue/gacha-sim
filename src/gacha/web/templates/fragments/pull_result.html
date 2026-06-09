@@ -1,0 +1,23 @@
+<!-- 天井バーをOOBスワップで更新 -->
+{% set pct = (pity_count / hard_pity * 100) | round(1) %}
+<div id="pity-bar" hx-swap-oob="true" class="pity-bar-wrap" style="margin-bottom: 1rem;">
+  <span class="pity-label">天井カウント</span>
+  <div class="pity-bar-bg">
+    <div class="pity-bar-fill" style="width: {{ pct }}%; background: {% if pity_count >= soft_pity_start %}#f6c244{% else %}var(--accent){% endif %};"></div>
+  </div>
+  <span class="pity-label">{{ pity_count }} / {{ hard_pity }}</span>
+</div>
+
+<div class="pull-batch">
+  {% for r in results %}
+  <div class="pull-card" data-rarity="{{ r.item.rarity.value }}">
+    <span class="rarity-badge badge-{{ r.item.rarity.value }}">{{ r.item.rarity.value }}</span>
+    {% if r.item.is_pickup %}<span class="pickup-tag">UP!</span>{% endif %}
+    <div class="item-name">{{ r.item.name }}</div>
+    <div class="pity-info">
+      {{ r.pity_count }}連目
+      {% if r.pity_type.value == "hard" %} 🎯天井{% elif r.pity_type.value == "soft" %} ✨確率UP{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>

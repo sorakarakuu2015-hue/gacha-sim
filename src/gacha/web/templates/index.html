@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- バナー選択 -->
+<div class="card">
+  <div class="card-title">バナー選択</div>
+  <form
+    class="banner-form"
+    hx-post="/session/switch"
+    hx-target="#banner-area"
+    hx-swap="outerHTML"
+  >
+    <select name="banner_id" id="banner-select">
+      {% for banner in banners %}
+      <option value="{{ banner.id }}"
+        {% if state and state.banner_id == banner.id %}selected{% endif %}>
+        {{ banner.name }}
+      </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">変更</button>
+  </form>
+</div>
+
+<!-- バナー情報 + ガチャボタン -->
+<div class="card" id="banner-area">
+  {% set current_banner = banners[0] %}
+  {% if state %}
+    {% for b in banners %}{% if b.id == state.banner_id %}{% set current_banner = b %}{% endif %}{% endfor %}
+  {% endif %}
+
+  <div class="card-title">{{ current_banner.name }}</div>
+  {% if current_banner.stone_price %}
+  <div class="stone-price-badge">1回 約¥{{ (current_banner.stone_price.jpy_per_pull()|float|round)|int }}</div>
+  {% endif %}
+
+  <!-- 天井バー -->
+  <div class="pity-bar-wrap" id="pity-bar" style="margin-bottom: 1rem;">
+    {% set pity_now = state.pity_count if state else 0 %}
+    {% set hard = current_banner.pity.hard_pity %}
+    {% set soft = current_banner.pity.soft_pity_start %}
+    {% set pct = (pity_now / hard * 100) | round(1) %}
+    {% if pity_now >= soft %}
+      {% set bar_color = "#f6c244" %}
+    {% else %}
+      {% set bar_color = "var(--accent)" %}
+    {% endif %}
+    <span class="pity-label">天井カウント</span>
+    <div class="pity-bar-bg">
+      <div class="pity-bar-fill" style="width: {{ pct }}%; background: {{ bar_color }};"></div>
+    </div>
+    <span class="pity-label">{{ pity_now }} / {{ hard }}</span>
+  </div>
+
+  <!-- ガチャボタン -->
+  <div class="pull-area">
+    <button
+      class="btn btn-primary"
+      hx-post="/pull/1"
+      hx-target="#result"
+      hx-swap="afterbegin"
+      hx-indicator=".pull-area"
+    >1回引く</button>
+    <button
+      class="btn btn-primary"
+      hx-post="/pull/10"
+      hx-target="#result"
+      hx-swap="afterbegin"
+      hx-indicator=".pull-area"
+    >10連</button>
+    <button
+      class="btn btn-secondary"
+      hx-delete="/api/v1/session"
+      hx-confirm="本当にリセットしますか？"
+      hx-target="#result"
+      hx-swap="innerHTML"
+      hx-on::after-request="document.getElementById('stats-area').innerHTML=''"
+    >リセット</button>
+  </div>
+</div>
+
+<!-- 統計 -->
+<div class="card" id="stats-area"
+  hx-get="/stats"
+  hx-trigger="every 3s"
+  hx-swap="innerHTML"
+>
+  <div class="empty-state">まだ引いていません</div>
+</div>
+
+<!-- 結果一覧 -->
+<div class="card">
+  <div class="card-title">結果</div>
+  <div id="result">
+    <div class="empty-state">「引く」ボタンを押してください</div>
+  </div>
+</div>
+
+{% endblock %}

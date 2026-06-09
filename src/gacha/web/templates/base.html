@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gacha Simulator{% endblock %}</title>
+  <script src="/static/htmx.min.js"></script>
+  <style>
+    :root {
+      --rarity-color-r: #6baed6;
+      --rarity-color-sr: #9e6bc4;
+      --rarity-color-ssr: #f6c244;
+      --rarity-color-ur: #ff4f4f;
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #22223b;
+      --text: #e8e8f0;
+      --text-muted: #888899;
+      --accent: #6c63ff;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid #2a2a4a;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.03em; }
+    header span { font-size: 1.6rem; }
+
+    main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid #2a2a4a;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    /* Banner selector */
+    .banner-form { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+    select {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid #3a3a5a;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+      flex: 1;
+      min-width: 200px;
+      cursor: pointer;
+    }
+
+    /* Pull buttons */
+    .pull-area { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    .btn {
+      padding: 0.65rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid #3a3a5a; }
+    .btn-danger { background: #c0392b; color: #fff; }
+
+    /* Pity bar */
+    .pity-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .pity-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .pity-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .pity-label { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--rarity-color-ssr); }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+    /* Pull results */
+    #result { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .pull-batch {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .pull-card {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 0.75rem;
+      text-align: center;
+      border: 2px solid transparent;
+      animation: slideIn 0.3s ease both;
+    }
+
+    .pull-card[data-rarity="R"]   { border-color: var(--rarity-color-r); }
+    .pull-card[data-rarity="SR"]  { border-color: var(--rarity-color-sr); }
+    .pull-card[data-rarity="SSR"] { border-color: var(--rarity-color-ssr); animation: goldenFlash 0.6s ease both; }
+    .pull-card[data-rarity="UR"]  { border-color: var(--rarity-color-ur); animation: goldenFlash 0.6s ease both; }
+
+    .pull-card .rarity-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 0.4rem;
+    }
+
+    .badge-R   { background: var(--rarity-color-r);   color: #000; }
+    .badge-SR  { background: var(--rarity-color-sr);  color: #fff; }
+    .badge-SSR { background: var(--rarity-color-ssr); color: #000; }
+    .badge-UR  { background: var(--rarity-color-ur);  color: #fff; }
+
+    .pull-card .item-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      word-break: break-all;
+    }
+
+    .pull-card .pity-info {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .pickup-tag {
+      display: inline-block;
+      background: #ffd700;
+      color: #000;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      margin-left: 0.25rem;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes goldenFlash {
+      0%   { opacity: 0; transform: scale(0.8); box-shadow: 0 0 0 0 rgba(246,194,68,0); }
+      50%  { box-shadow: 0 0 20px 8px rgba(246,194,68,0.5); }
+      100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(246,194,68,0); }
+    }
+
+    /* Stagger animation for 10-pull */
+    .pull-card:nth-child(1)  { animation-delay: 0.00s; }
+    .pull-card:nth-child(2)  { animation-delay: 0.08s; }
+    .pull-card:nth-child(3)  { animation-delay: 0.16s; }
+    .pull-card:nth-child(4)  { animation-delay: 0.24s; }
+    .pull-card:nth-child(5)  { animation-delay: 0.32s; }
+    .pull-card:nth-child(6)  { animation-delay: 0.40s; }
+    .pull-card:nth-child(7)  { animation-delay: 0.48s; }
+    .pull-card:nth-child(8)  { animation-delay: 0.56s; }
+    .pull-card:nth-child(9)  { animation-delay: 0.64s; }
+    .pull-card:nth-child(10) { animation-delay: 0.72s; }
+
+    .stone-price-badge {
+      display: inline-block;
+      background: #2a2a4a;
+      color: var(--rarity-color-ssr);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      margin-bottom: 0.75rem;
+      border: 1px solid #3a3a5a;
+    }
+
+    .cost-section {
+      margin-top: 1rem;
+      border-top: 1px solid #2a2a4a;
+      padding-top: 0.75rem;
+    }
+
+    .cost-section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .cost-value { color: #4db8ff; }
+
+    .cost-note {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .htmx-request .btn { opacity: 0.6; pointer-events: none; }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span>🎰</span>
+    <h1>Gacha Simulator</h1>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% if total_pulls > 0 %}
+<div class="card-title">統計</div>
+<div class="stats-row">
+  <div class="stat-item">
+    <div class="stat-value">{{ total_pulls }}</div>
+    <div class="stat-label">総引数</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">{{ ssr_count }}</div>
+    <div class="stat-label">SSR獲得数</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">{{ "%.1f" | format(ssr_rate * 100) }}%</div>
+    <div class="stat-label">SSR排出率</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">{{ "%.0f" | format(avg_pity) }}</div>
+    <div class="stat-label">平均天井数</div>
+  </div>
+</div>
+{% if cost_jpy is not none %}
+<div class="cost-section">
+  <div class="cost-section-title">💴 課金シミュレーション（参考値）</div>
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-value cost-value">¥{{ "%.0f" | format(cost_jpy) }}</div>
+      <div class="stat-label">累計消費額</div>
+    </div>
+    {% if cost_per_ssr_jpy is not none %}
+    <div class="stat-item">
+      <div class="stat-value cost-value">¥{{ "%.0f" | format(cost_per_ssr_jpy) }}</div>
+      <div class="stat-label">SSR 1体あたり</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="cost-note">※最良パック換算の参考値です</div>
+</div>
+{% endif %}
+{% else %}
+<div class="empty-state">まだ引いていません</div>
+{% endif %}
