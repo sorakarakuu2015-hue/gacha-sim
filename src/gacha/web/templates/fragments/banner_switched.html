@@ -1,3 +1,6 @@
+{% if clear_custom_error %}
+<div id="custom-error" hx-swap-oob="true"></div>
+{% endif %}
 <div class="card" id="banner-area">
   <div class="card-title">{{ banner.name }}</div>
   {% if banner.stone_price %}

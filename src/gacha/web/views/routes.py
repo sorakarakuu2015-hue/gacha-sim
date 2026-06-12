@@ -6,12 +6,13 @@ import structlog
 from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 
 from gacha.cost import CostData, compute_cost, compute_stats
 from gacha.engine import pull_multi
-from gacha.models import SessionState
+from gacha.models import CustomBannerInput, SessionState
 from gacha.settings import settings
-from gacha.web.api.routes import _all_banners, _store
+from gacha.web.api.routes import _all_banners, _custom_banners, _custom_banners_lock, _store
 
 router = APIRouter(tags=["views"])
 log: structlog.stdlib.BoundLogger = structlog.get_logger()
@@ -112,6 +113,63 @@ async def stats_fragment(
             "cost_per_ssr_jpy": cost.cost_per_ssr_jpy if cost is not None else None,
         },
     )
+
+
+def _format_error(exc: Exception) -> str:
+    """ValidationError / ValueError を日本語メッセージに変換する。"""
+    if isinstance(exc, ValidationError):
+        msgs = [e["msg"].removeprefix("Value error, ") for e in exc.errors()]
+        return " / ".join(msgs)
+    return str(exc)
+
+
+@router.post("/session/custom", response_class=HTMLResponse)
+async def create_custom_banner(
+    request: Request,
+    gacha_session: Annotated[str | None, Cookie()] = None,
+) -> HTMLResponse:
+    """カスタムバナーを作成してセッションを切り替える。"""
+    form = await request.form()
+    try:
+        jpy_raw = str(form.get("jpy_per_pull", "")).strip()
+        inp = CustomBannerInput(
+            name=str(form.get("name", "")),
+            ssr_rate_pct=float(str(form.get("ssr_rate_pct", "0"))),
+            soft_pity_start=int(str(form.get("soft_pity_start", "0"))),
+            hard_pity=int(str(form.get("hard_pity", "0"))),
+            jpy_per_pull=float(jpy_raw) if jpy_raw else None,
+        )
+    except (ValueError, ValidationError) as exc:
+        return templates.TemplateResponse(
+            request,
+            "fragments/custom_error.html",
+            {"error": _format_error(exc)},
+            status_code=422,
+        )
+    banner = inp.to_banner()
+    with _custom_banners_lock:
+        _custom_banners[banner.id] = banner
+    log.info("custom_banner_created_via_form", banner_id=banner.id, name=banner.name)
+
+    if gacha_session:
+        new_session_id = _store.regenerate(gacha_session, banner.id)
+    else:
+        new_session_id = _store.create(banner.id)
+
+    banners_list = list(_all_banners().values())
+    state = _store.get(new_session_id)
+    resp = templates.TemplateResponse(
+        request,
+        "fragments/banner_switched.html",
+        {
+            "banner": banner,
+            "banners": banners_list,
+            "state": state,
+            "clear_custom_error": True,
+        },
+    )
+    resp.set_cookie("gacha_session", new_session_id, httponly=True, samesite="strict")
+    return resp
 
 
 @router.post("/session/switch", response_class=HTMLResponse)

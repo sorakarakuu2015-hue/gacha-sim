@@ -1,3 +1,4 @@
+import uuid
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import Literal
@@ -82,3 +83,58 @@ class SessionState(BaseModel):
     ssr_count: int = 0
     ssr_pity_sum: int = 0
     history: list[PullResult] = Field(default_factory=list)
+
+
+class CustomBannerInput(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    ssr_rate_pct: float = Field(gt=0, le=50)
+    soft_pity_start: int = Field(ge=10, le=989)
+    hard_pity: int = Field(ge=20, le=999)
+    jpy_per_pull: float | None = Field(default=None, gt=0, le=99999)
+
+    @model_validator(mode="after")
+    def validate_pity_gap(self) -> "CustomBannerInput":
+        """hard_pity と soft_pity_start の差が10以上あることを保証する。"""
+        if self.hard_pity - self.soft_pity_start < 10:
+            raise ValueError("hard_pity は soft_pity_start より10以上大きくしてください")
+        return self
+
+    def to_banner(self) -> Banner:
+        """CustomBannerInput から Banner を生成する。"""
+        banner_id = f"custom_{uuid.uuid4().hex[:12]}"
+        ssr_rate = self.ssr_rate_pct / 100
+        # SSR率が上がるほどSR・R率も比例縮小し合計が常に1.0になる
+        sr_total = (1.0 - ssr_rate) * 0.15
+        r_rate = (1.0 - ssr_rate) * 0.85
+        # soft pity 区間でSSR率を段階的に引き上げる boost 量。
+        # ゾーン全体で (ssr_rate * 5) 分の押し上げ効果を均等に配分する設計。
+        pity_zone = self.hard_pity - self.soft_pity_start
+        rate_boost = round(ssr_rate * 5.0 / pity_zone, 6)
+        stone_price = (
+            StonePrice(stones_per_pull=1, jpy_per_stone=self.jpy_per_pull)
+            if self.jpy_per_pull is not None  # 0除外は gt=0 フィールド制約で保証済み
+            else None
+        )
+        return Banner(
+            id=banner_id,
+            name=self.name,
+            guaranteed_featured=True,
+            pity=PityConfig(
+                soft_pity_start=self.soft_pity_start,
+                hard_pity=self.hard_pity,
+                rate_boost_per_pull=rate_boost,
+            ),
+            stone_price=stone_price,
+            items=[
+                Item(id="ssr_pickup", name="ピックアップSSR", rarity=Rarity.SSR,
+                     rate=round(ssr_rate / 2, 8), is_pickup=True),
+                Item(id="ssr_std",    name="スタンダードSSR", rarity=Rarity.SSR,
+                     rate=round(ssr_rate / 2, 8)),
+                Item(id="sr_1",       name="SR キャラA",      rarity=Rarity.SR,
+                     rate=round(sr_total / 2, 8)),
+                Item(id="sr_2",       name="SR キャラB",      rarity=Rarity.SR,
+                     rate=round(sr_total / 2, 8)),
+                Item(id="r_1",        name="R アイテム",      rarity=Rarity.R,
+                     rate=round(r_rate, 8)),
+            ],
+        )

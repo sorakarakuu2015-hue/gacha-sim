@@ -1,7 +1,9 @@
 import random
+import threading
 from typing import Annotated
 
 import structlog
+from cachetools import TTLCache
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -16,7 +18,8 @@ router = APIRouter(prefix="/api/v1", tags=["api"])
 log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _store = SessionStore()
-_custom_banners: dict[str, Banner] = {}
+_custom_banners: TTLCache[str, Banner] = TTLCache(maxsize=500, ttl=3600)
+_custom_banners_lock = threading.Lock()
 
 
 def _get_rng() -> random.Random:
@@ -24,7 +27,8 @@ def _get_rng() -> random.Random:
 
 
 def _all_banners() -> dict[str, Banner]:
-    return {**ALL_PRESETS, **_custom_banners}
+    with _custom_banners_lock:
+        return {**ALL_PRESETS, **dict(_custom_banners)}
 
 
 class SessionResponse(BaseModel):
@@ -57,7 +61,8 @@ async def create_banner(banner: Banner) -> Banner:
     """カスタムバナーを登録する。"""
     if banner.id in ALL_PRESETS:
         raise HTTPException(status_code=409, detail="Cannot override preset banner")
-    _custom_banners[banner.id] = banner
+    with _custom_banners_lock:
+        _custom_banners[banner.id] = banner
     log.info("custom_banner_created", banner_id=banner.id)
     return banner
 
