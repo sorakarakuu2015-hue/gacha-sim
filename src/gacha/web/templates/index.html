@@ -132,16 +132,18 @@
     <button
       class="btn btn-primary"
       hx-post="/pull/1"
-      hx-target="#result"
-      hx-swap="afterbegin"
-      hx-indicator=".pull-area"
+      hx-target="#pull-modal-content"
+      hx-swap="innerHTML"
+      hx-disabled-elt="closest .pull-area"
+      hx-on::after-request="openPullModal()"
     >1回引く</button>
     <button
       class="btn btn-primary"
       hx-post="/pull/10"
-      hx-target="#result"
-      hx-swap="afterbegin"
-      hx-indicator=".pull-area"
+      hx-target="#pull-modal-content"
+      hx-swap="innerHTML"
+      hx-disabled-elt="closest .pull-area"
+      hx-on::after-request="openPullModal()"
     >10連</button>
     <button
       class="btn btn-secondary"
@@ -149,7 +151,7 @@
       hx-confirm="本当にリセットしますか？"
       hx-target="#result"
       hx-swap="innerHTML"
-      hx-on::after-request="document.getElementById('stats-area').innerHTML=''"
+      hx-on::after-request="closePullModal(); document.getElementById('stats-area').innerHTML=''; htmx.trigger(document.body, 'pullComplete')"
     >リセット</button>
   </div>
 </div>
@@ -157,18 +159,28 @@
 <!-- 統計 -->
 <div class="card" id="stats-area"
   hx-get="/stats"
-  hx-trigger="every 3s"
+  hx-trigger="pullComplete from:body, load"
   hx-swap="innerHTML"
+  aria-live="polite"
 >
   <div class="empty-state">まだ引いていません</div>
 </div>
 
-<!-- 結果一覧 -->
+<!-- 最後の結果 -->
 <div class="card">
-  <div class="card-title">結果</div>
+  <div class="card-title">最後の結果</div>
   <div id="result">
     <div class="empty-state">「引く」ボタンを押してください</div>
   </div>
+</div>
+
+<!-- フルスクリーンプルモーダル -->
+<div id="pull-modal" class="pull-modal" role="dialog" aria-modal="true" aria-labelledby="pull-modal-title">
+  <h2 id="pull-modal-title" class="visually-hidden">ガチャ結果</h2>
+  <div id="pull-modal-content" class="pull-modal-content"></div>
+  <button class="btn btn-secondary pull-modal-close" onclick="closePullModal()">
+    閉じる（タップでスキップ）
+  </button>
 </div>
 
 {% endblock %}
