@@ -10,13 +10,18 @@
 
 <div class="pull-batch">
   {% for r in results %}
-  <div class="pull-card" data-rarity="{{ r.item.rarity.value }}">
-    <span class="rarity-badge badge-{{ r.item.rarity.value }}">{{ r.item.rarity.value }}</span>
-    {% if r.item.is_pickup %}<span class="pickup-tag">UP!</span>{% endif %}
-    <div class="item-name">{{ r.item.name }}</div>
-    <div class="pity-info">
-      {{ r.pity_count }}連目
-      {% if r.pity_type.value == "hard" %} 🎯天井{% elif r.pity_type.value == "soft" %} ✨確率UP{% endif %}
+  <div class="card-flip-wrapper">
+    <div class="card-flip-inner" style="--i: {{ loop.index0 }}">
+      <div class="card-face card-face-back">✦</div>
+      <div class="card-face card-face-front pull-card" data-rarity="{{ r.item.rarity.value }}">
+        <span class="rarity-badge badge-{{ r.item.rarity.value }}">{{ r.item.rarity.value }}</span>
+        {% if r.item.is_pickup %}<span class="pickup-tag">UP!</span>{% endif %}
+        <div class="item-name">{{ r.item.name }}</div>
+        <div class="pity-info">
+          {{ r.pity_count }}連目
+          {% if r.pity_type.value == "hard" %} 🎯天井{% elif r.pity_type.value == "soft" %} ✨確率UP{% endif %}
+        </div>
+      </div>
     </div>
   </div>
   {% endfor %}

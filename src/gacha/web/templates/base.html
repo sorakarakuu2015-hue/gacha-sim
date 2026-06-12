@@ -143,13 +143,13 @@
       padding: 0.75rem;
       text-align: center;
       border: 2px solid transparent;
-      animation: slideIn 0.3s ease both;
+      animation: none;
     }
 
     .pull-card[data-rarity="R"]   { border-color: var(--rarity-color-r); }
     .pull-card[data-rarity="SR"]  { border-color: var(--rarity-color-sr); }
-    .pull-card[data-rarity="SSR"] { border-color: var(--rarity-color-ssr); animation: goldenFlash 0.6s ease both; }
-    .pull-card[data-rarity="UR"]  { border-color: var(--rarity-color-ur); animation: goldenFlash 0.6s ease both; }
+    .pull-card[data-rarity="SSR"] { border-color: var(--rarity-color-ssr); }
+    .pull-card[data-rarity="UR"]  { border-color: var(--rarity-color-ur); }
 
     .pull-card .rarity-badge {
       font-size: 0.7rem;
@@ -200,17 +200,52 @@
       100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(246,194,68,0); }
     }
 
-    /* Stagger animation for 10-pull */
-    .pull-card:nth-child(1)  { animation-delay: 0.00s; }
-    .pull-card:nth-child(2)  { animation-delay: 0.08s; }
-    .pull-card:nth-child(3)  { animation-delay: 0.16s; }
-    .pull-card:nth-child(4)  { animation-delay: 0.24s; }
-    .pull-card:nth-child(5)  { animation-delay: 0.32s; }
-    .pull-card:nth-child(6)  { animation-delay: 0.40s; }
-    .pull-card:nth-child(7)  { animation-delay: 0.48s; }
-    .pull-card:nth-child(8)  { animation-delay: 0.56s; }
-    .pull-card:nth-child(9)  { animation-delay: 0.64s; }
-    .pull-card:nth-child(10) { animation-delay: 0.72s; }
+    /* Card flip reveal */
+    .card-flip-wrapper {
+      perspective: 800px;
+    }
+
+    .card-flip-inner {
+      position: relative;
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      will-change: transform;
+      animation: flipReveal 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+      animation-delay: calc(var(--i) * 0.18s);
+    }
+
+    .card-face {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    .card-face-back {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #1a1a3e 0%, #2a2a5a 100%);
+      border-radius: 10px;
+      border: 2px solid #4a4a7a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: #4a4a8a;
+    }
+
+    .card-face-front {
+      transform: rotateY(180deg);
+    }
+
+    .card-face-front.pull-card[data-rarity="SSR"],
+    .card-face-front.pull-card[data-rarity="UR"] {
+      animation: goldenFlash 0.6s ease forwards;
+      animation-delay: calc(var(--i) * 0.18s + 0.45s);
+    }
+
+    @keyframes flipReveal {
+      from { transform: rotateY(0deg); }
+      to   { transform: rotateY(180deg); }
+    }
 
     .stone-price-badge {
       display: inline-block;
@@ -264,5 +299,12 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script>
+    document.body.addEventListener('animationend', function(e) {
+      if (e.target.classList.contains('card-flip-inner')) {
+        e.target.style.animation = 'none';
+      }
+    });
+  </script>
 </body>
 </html>
