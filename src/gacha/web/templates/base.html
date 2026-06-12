@@ -207,6 +207,7 @@
 
     .card-flip-inner {
       position: relative;
+      transform: rotateY(180deg);
       transform-style: preserve-3d;
       -webkit-transform-style: preserve-3d;
       will-change: transform;
@@ -303,6 +304,7 @@
     document.body.addEventListener('animationend', function(e) {
       if (e.target.classList.contains('card-flip-inner')) {
         e.target.style.animation = 'none';
+        e.target.style.transform = 'rotateY(180deg)';
       }
     });
   </script>
