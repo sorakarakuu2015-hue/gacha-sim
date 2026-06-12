@@ -83,6 +83,7 @@ class SessionState(BaseModel):
     ssr_count: int = 0
     ssr_pity_sum: int = 0
     history: list[PullResult] = Field(default_factory=list)
+    custom_banners: dict[str, Banner] = Field(default_factory=dict)
 
 
 class CustomBannerInput(BaseModel):

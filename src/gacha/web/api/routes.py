@@ -1,9 +1,7 @@
 import random
-import threading
 from typing import Annotated
 
 import structlog
-from cachetools import TTLCache
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from pydantic import BaseModel, Field
 
@@ -18,17 +16,23 @@ router = APIRouter(prefix="/api/v1", tags=["api"])
 log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _store = SessionStore()
-_custom_banners: TTLCache[str, Banner] = TTLCache(maxsize=500, ttl=3600)
-_custom_banners_lock = threading.Lock()
 
 
 def _get_rng() -> random.Random:
     return random.Random(settings.seed) if settings.seed is not None else random.Random()
 
 
-def _all_banners() -> dict[str, Banner]:
-    with _custom_banners_lock:
-        return {**ALL_PRESETS, **dict(_custom_banners)}
+def _preset_banners() -> dict[str, Banner]:
+    """組み込みプリセットのみを返す。"""
+    return dict(ALL_PRESETS)
+
+
+def _banners_for_session(state: SessionState | None) -> dict[str, Banner]:
+    """プリセット + セッション固有カスタムバナーを返す。"""
+    presets = _preset_banners()
+    if state is None:
+        return presets
+    return {**presets, **state.custom_banners}
 
 
 class SessionResponse(BaseModel):
@@ -51,18 +55,34 @@ class StatsResponse(BaseModel):
 
 
 @router.get("/banners")
-async def list_banners() -> list[Banner]:
-    """利用可能なバナー一覧を返す。"""
-    return list(_all_banners().values())
+async def list_banners(
+    gacha_session: Annotated[str | None, Cookie()] = None,
+) -> list[Banner]:
+    """利用可能なバナー一覧を返す（プリセット＋自セッションのカスタム）。"""
+    state = _store.get(gacha_session) if gacha_session else None
+    return list(_banners_for_session(state).values())
 
 
 @router.post("/banners", status_code=201)
-async def create_banner(banner: Banner) -> Banner:
-    """カスタムバナーを登録する。"""
+async def create_banner(
+    banner: Banner,
+    response: Response,
+    gacha_session: Annotated[str | None, Cookie()] = None,
+) -> Banner:
+    """カスタムバナーをセッションに登録する。"""
     if banner.id in ALL_PRESETS:
         raise HTTPException(status_code=409, detail="Cannot override preset banner")
-    with _custom_banners_lock:
-        _custom_banners[banner.id] = banner
+    old_state = _store.get(gacha_session) if gacha_session else None
+    existing_custom = old_state.custom_banners if old_state else {}
+    new_state = SessionState(
+        banner_id=banner.id,
+        custom_banners={**existing_custom, banner.id: banner},
+    )
+    if gacha_session and old_state is not None:
+        new_session_id = _store.regenerate_with_state(gacha_session, new_state)
+    else:
+        new_session_id = _store.create_with_state(new_state)
+    response.set_cookie("gacha_session", new_session_id, httponly=True, samesite="strict")
     log.info("custom_banner_created", banner_id=banner.id)
     return banner
 
@@ -74,12 +94,15 @@ async def start_session(
     gacha_session: Annotated[str | None, Cookie()] = None,
 ) -> SessionResponse:
     """セッションを開始する。バナー切替時はIDを再発行する。"""
-    if banner_id not in _all_banners():
+    old_state = _store.get(gacha_session) if gacha_session else None
+    if banner_id not in _banners_for_session(old_state):
         raise HTTPException(status_code=404, detail=f"Banner '{banner_id}' not found")
+    existing_custom = old_state.custom_banners if old_state else {}
+    new_state = SessionState(banner_id=banner_id, custom_banners=existing_custom)
     if gacha_session:
-        session_id = _store.regenerate(gacha_session, banner_id)
+        session_id = _store.regenerate_with_state(gacha_session, new_state)
     else:
-        session_id = _store.create(banner_id)
+        session_id = _store.create_with_state(new_state)
     response.set_cookie("gacha_session", session_id, httponly=True, samesite="strict")
     log.info("session_started", session_id=session_id[:8], banner_id=banner_id)
     return SessionResponse(session_id=session_id, banner_id=banner_id)
@@ -97,7 +120,7 @@ async def pull(
     state = _store.get(gacha_session)
     if state is None:
         raise HTTPException(status_code=404, detail="Session expired or not found.")
-    banners = _all_banners()
+    banners = _banners_for_session(state)
     if state.banner_id not in banners:
         raise HTTPException(status_code=404, detail=f"Banner '{state.banner_id}' not found.")
     banner = banners[state.banner_id]
@@ -118,7 +141,7 @@ async def get_stats(
     if state is None:
         raise HTTPException(status_code=404, detail="Session expired or not found.")
     stats = compute_stats(state)
-    banner = _all_banners().get(state.banner_id)
+    banner = _banners_for_session(state).get(state.banner_id)
     cost: CostData | None = None
     if banner is not None and banner.stone_price is not None:
         cost = compute_cost(banner.stone_price, state.total_pulls, state.ssr_count)

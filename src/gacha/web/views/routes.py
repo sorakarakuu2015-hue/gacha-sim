@@ -12,7 +12,7 @@ from gacha.cost import CostData, compute_cost, compute_stats
 from gacha.engine import pull_multi
 from gacha.models import CustomBannerInput, SessionState
 from gacha.settings import settings
-from gacha.web.api.routes import _all_banners, _custom_banners, _custom_banners_lock, _store
+from gacha.web.api.routes import _banners_for_session, _store
 
 router = APIRouter(tags=["views"])
 log: structlog.stdlib.BoundLogger = structlog.get_logger()
@@ -31,10 +31,8 @@ async def index(
     gacha_session: Annotated[str | None, Cookie()] = None,
 ) -> HTMLResponse:
     """メインページを返す。"""
-    banners = list(_all_banners().values())
-    state: SessionState | None = None
-    if gacha_session:
-        state = _store.get(gacha_session)
+    state: SessionState | None = _store.get(gacha_session) if gacha_session else None
+    banners = list(_banners_for_session(state).values())
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -60,7 +58,7 @@ async def pull_fragment(
         state = SessionState(banner_id="genshin_like")
         _store.update(gacha_session, state)
 
-    banners = _all_banners()
+    banners = _banners_for_session(state)
     banner_id = state.banner_id if state.banner_id in banners else "genshin_like"
     banner = banners[banner_id]
 
@@ -97,7 +95,7 @@ async def stats_fragment(
     if state is None:
         return templates.TemplateResponse(request, "fragments/stats.html", {"total_pulls": 0})
     stats = compute_stats(state)
-    banner = _all_banners().get(state.banner_id)
+    banner = _banners_for_session(state).get(state.banner_id)
     cost: CostData | None = None
     if banner is not None and banner.stone_price is not None:
         cost = compute_cost(banner.stone_price, state.total_pulls, state.ssr_count)
@@ -147,17 +145,20 @@ async def create_custom_banner(
             status_code=422,
         )
     banner = inp.to_banner()
-    with _custom_banners_lock:
-        _custom_banners[banner.id] = banner
+    old_state = _store.get(gacha_session) if gacha_session else None
+    existing_custom = old_state.custom_banners if old_state else {}
+    new_state = SessionState(
+        banner_id=banner.id,
+        custom_banners={**existing_custom, banner.id: banner},
+    )
+    if gacha_session:
+        new_session_id = _store.regenerate_with_state(gacha_session, new_state)
+    else:
+        new_session_id = _store.create_with_state(new_state)
     log.info("custom_banner_created_via_form", banner_id=banner.id, name=banner.name)
 
-    if gacha_session:
-        new_session_id = _store.regenerate(gacha_session, banner.id)
-    else:
-        new_session_id = _store.create(banner.id)
-
-    banners_list = list(_all_banners().values())
     state = _store.get(new_session_id)
+    banners_list = list(_banners_for_session(state).values())
     resp = templates.TemplateResponse(
         request,
         "fragments/banner_switched.html",
@@ -177,21 +178,23 @@ async def switch_banner(
     request: Request,
     gacha_session: Annotated[str | None, Cookie()] = None,
 ) -> HTMLResponse:
-    """バナー切り替え: セッションIDを再発行してリダイレクト。"""
+    """バナー切り替え: カスタムバナーを引き継ぎつつセッションIDを再発行する。"""
     form = await request.form()
     banner_id = str(form.get("banner_id", "genshin_like"))
-    banners = _all_banners()
+    old_state = _store.get(gacha_session) if gacha_session else None
+    banners = _banners_for_session(old_state)
     if banner_id not in banners:
         banner_id = "genshin_like"
 
+    existing_custom = old_state.custom_banners if old_state else {}
+    new_state = SessionState(banner_id=banner_id, custom_banners=existing_custom)
     if gacha_session:
-        new_session_id = _store.regenerate(gacha_session, banner_id)
+        new_session_id = _store.regenerate_with_state(gacha_session, new_state)
     else:
-        new_session_id = _store.create(banner_id)
+        new_session_id = _store.create_with_state(new_state)
 
-    banners_list = list(banners.values())
     state = _store.get(new_session_id)
-
+    banners_list = list(_banners_for_session(state).values())
     resp = templates.TemplateResponse(
         request,
         "fragments/banner_switched.html",
