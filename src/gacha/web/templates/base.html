@@ -317,6 +317,44 @@
     }
 
     .help-popup.open { display: block; }
+
+    /* カスタムバナーフォームグリッド（デスクトップ: 2カラム） */
+    .custom-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .custom-form-full { grid-column: span 2; }
+
+    /* details > summary タッチターゲット確保 */
+    details.card > summary {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* ============ モバイル対応 (≤600px) ============ */
+    @media (max-width: 600px) {
+      main { padding: 0.75rem; }
+      .card { padding: 1rem; }
+      header { padding: 0.75rem 1rem; }
+      header h1 { font-size: 1.2rem; }
+
+      /* バナー選択: select + ボタンを横並びgridに */
+      .banner-form { display: grid; grid-template-columns: 1fr auto; }
+      select { min-width: 0; }
+
+      /* カスタムバナーフォーム: 1カラム化 */
+      .custom-form-grid { grid-template-columns: 1fr; }
+      .custom-form-full { grid-column: span 1; }
+
+      /* タッチターゲット44px確保 */
+      .btn { min-height: 44px; padding: 0.55rem 1.2rem; }
+
+      /* プルエリアボタン: 3均等列gridで折り返さない */
+      .pull-area { display: grid; grid-template-columns: repeat(3, 1fr); }
+    }
   </style>
 </head>
 <body>
