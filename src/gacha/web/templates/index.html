@@ -44,20 +44,20 @@
         <input type="number" name="ssr_rate_pct" placeholder="3.0" min="0.01" max="50" step="0.01" required
           style="background: var(--surface2); color: var(--text); border: 1px solid #3a3a5a; border-radius: 8px; padding: 0.45rem 0.6rem; font-size: 0.9rem;">
       </label>
-      <label style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;">
-        <span style="display: flex; align-items: center; gap: 0.4rem;">
-          soft pity 開始回数
-          <details style="display: inline; font-size: 0.75rem;">
-            <summary style="list-style: none; cursor: pointer; background: #2a2a4a; color: var(--text-muted); border-radius: 99px; padding: 0.05rem 0.45rem; user-select: none;">？</summary>
-            <div style="position: absolute; z-index: 10; margin-top: 0.3rem; background: #1e1e3a; border: 1px solid #3a3a6a; border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.82rem; line-height: 1.6; color: var(--text); max-width: 260px; font-weight: normal;">
+      <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; position: relative;">
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <label for="soft_pity_start">soft pity 開始回数</label>
+          <details style="font-size: 0.75rem;">
+            <summary style="list-style: none; cursor: pointer; background: #2a2a4a; color: var(--text-muted); border-radius: 99px; padding: 0.05rem 0.5rem; user-select: none;">？</summary>
+            <div style="position: absolute; left: 0; z-index: 10; margin-top: 0.3rem; background: #1e1e3a; border: 1px solid #3a3a6a; border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.82rem; line-height: 1.6; color: var(--text); max-width: 260px;">
               この回数を超えると、引くたびにSSRが出やすくなります。<br>
               例）74回目以降は毎回少しずつ確率UP → 天井（90回）で必ず出る
             </div>
           </details>
-        </span>
-        <input type="number" name="soft_pity_start" placeholder="74" min="10" max="989" required
+        </div>
+        <input id="soft_pity_start" type="number" name="soft_pity_start" placeholder="74" min="10" max="989" required
           style="background: var(--surface2); color: var(--text); border: 1px solid #3a3a5a; border-radius: 8px; padding: 0.45rem 0.6rem; font-size: 0.9rem;">
-      </label>
+      </div>
       <label style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;">
         天井 (hard pity)
         <input type="number" name="hard_pity" placeholder="90" min="20" max="999" required
